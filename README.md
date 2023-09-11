@@ -217,6 +217,105 @@ CONSTRAINT Rent_PK PRIMARY KEY(Rent_ID),
 CONSTRAINT Rent_FK FOREIGN KEY (Property_ID) REFERENCES Property (Property_ID));
 
 
+Queries: 
+
+Query 1: Extracts the second lowest rent for the properties available
+
+Select min(Rent Amount)
+From (Select Distinct Rent_Amount from Rent order by Rent_Amount desc) 
+Where rownum<=2;
+
+
+
+Query 2: Extracts promo code types, rent start and end dates, rent amounts for all the payments that have been made under discount of greater than 20%
+
+SELECT PROMO_CODE.PROMO_CODE_TYPE, payment.payment_type, rent.rent_start_date, trunc(rent.RENT_END_DATE, 'DAY') as WeekOfRentEndDay, 
+--calculate rent after applying promo discount 
+rent.rent_amount promo_discount/100 as discounted_rent,
+rent.rent_amount
+from promo_code
+left join payment on promo_code.payment_id=payment.payment_id
+left join rent on payment.property_id=rent.property_id
+where promo_code.promo_discount>20 and rent.rent_start_date >SYSDATE+15
+
+
+
+Query 3: Address details of the property with 'tops' as nearest grocery in the neighborhood and its availability
+
+SELECT INITCAP (Property. Property Name) AS PropertyName, 
+NVL (Property.Property_Status, 'Rented') AS Status, 
+Property. Property_Available_from AS "AVAILABLE FROM", 
+Address.House_Number AS "HOUSE NUMBER", 
+Address.Street AS Street
+FROM Property
+JOIN Address ON Property.Property_ID=Address.Property_ID
+WHERE Property. Property Name= (SELECT Property. Property Name
+FROM Neighbourhood
+JOIN Property ON Neighbourhood. Neighbourhood ID-Property.Neighbourhood_ID WHERE Neighbourhood. Nearest Grocery="Tops')
+
+
+
+
+Query 4: Find listed user, user type and listed property with highest showings
+
+WITH highestShowingProperty AS
+(select property.property_name, count(*), property.property_id 
+from property 
+join showings on property.property_id = showings.property_id 
+group by property.property_name, property.property_id 
+order by 2 desc
+fetch first 1 row only)
+select UPPER (CONCAT(CONCAT(users.user_f_name, ', '), users.user_1_name)) as Full Name,
+users.user_type, property.property_name
+from users 
+join property on users.user_id = property.user_id
+where property.property_id in (select property id from highest ShowingProperty);
+
+
+
+
+
+Query 5: Selected details of property where rent is between 1000 and 4500
+
+Select INITCAP (pt.property_name) as PROPERTYNAME, UPPER(pt.property_status) as PROPERTYSTATUS, ptype.noofbedrooms, 
+--casing because data is for unfurnished 
+CASE pf.pf unfurnished
+when 'N' then 'Furnished Place'
+else 'Not Furnished Place'
+end as FURNISHED,
+count(*) as AvaliableListings
+from property pt left outer join property type ptype on
+pt.property_id=ptype.property_id left outer join property feature of on 
+ptype.property_id=pf.property_id left outer join rent r on
+pf.property_id=r.property_id
+--condition for rent range
+where r.rent_amount between 1000 and 4500
+group by pt.property_name, pt.property_status, ptype.noofbedrooms, 
+pf.pf_unfurnished having count(*) >=1 
+--order by number of bedrooms 
+order by ptype.noofbedrooms;
+
+
+
+
+Query 6: Checking the property details for the next 4 showings for broker
+
+Select 
+property.property_name as PROPERTY, 
+showings.showing_date as SHOWINGDATE, 
+showings.showing time as SHOWINGTIME, 
+property.property_verified as TRUSTED, 
+lease_type.lt_lease_type_term as LeaseType,
+CONCAT(CONCAT(CONCAT(CONCAT(CONCAT(CONCAT(addr.house_number,, ), addr.street
+'), addr.city),', '), addr.state) as FullAddress
+from property join showings on
+property.property_id=showings.property_id join users on
+property.user_id=users.user_id join lease_type on
+property.lease_type_id= lease_type.lease_type_id join address addr on property.property_id=addr.property_id
+where showings.showing_enable='Y'
+and showings.showing_date>sysdate and users.user_type like 'Bro%' order by showings.showing_date asc fetch first 4 rows only;
+
+
 
 
 
